@@ -1,0 +1,745 @@
+#include <Arduino.h>
+
+#include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
+
+#include <ESP8266HTTPClient.h>
+
+#include <WiFiClient.h>
+
+ESP8266WiFiMulti WiFiMulti;
+
+#define ENA 14  // Enable/speed motors Right        GPIO14(D5)
+#define ENB 12  // Enable/speed motors Left         GPIO12(D6)
+#define IN_1 15 // L298N in1 motors Right           GPIO15(D8)
+#define IN_2 13 // L298N in2 motors Right           GPIO13(D7)
+#define IN_3 2  // L298N in3 motors Left            GPIO2(D4)
+#define IN_4 0  // L298N in4 motors Left            GPIO0(D3)
+
+const char *SSID = "AndroidAP";     //Change to wifi's name, what esp'll connect
+const char *PASSWORD = "123456788"; //Password for this
+
+const char *host = "savedatatttkht.ml";
+const uint16_t port = 80;
+
+#define WIFI1 "BMTTVT_FET"       //Change to wifi's name, what u wanna meansure
+#define WIFI2 "Tenda_HTVT"       //Change to wifi's name, what u wanna meansure
+#define WIFI3 "TP-LINK_5268_VPK" //Change to wifi's name, what u wanna meansure
+#define WIFI4 "ROBOT1"
+#define WIFI5 "DSC"
+#define WIFI6 "P208A"
+
+int RSSI1 = -98;
+int RSSI2 = -98;
+int RSSI3 = -98;
+int RSSI4 = -98;
+int RSSI5 = -98;
+int RSSI6 = -98;
+
+String dest = "";
+int lineofdest = 0, positionofdest = 0, lineofpos = 0, positionofpos = 0;
+int arr[2], break1 = 16, break2 = 4;
+int pos_t[] = {0, 0};
+bool start = true;
+int arr_data[6];
+float med[6] = {-98.00, -98.00, -98.00, -98.00, -98.00, -98.00};
+int arr_10[5][6];
+int t = 0;
+int dest_t[2]={0,0};
+
+void data_col()
+{   
+
+    for (int i = 0; i < 5; i++)
+    {
+        Serial.print("scan\t");
+        scan();
+        arr_10[i][0] = RSSI1;
+        arr_10[i][1] = RSSI2;
+        arr_10[i][2] = RSSI3;
+        arr_10[i][3] = RSSI4;
+        arr_10[i][4] = RSSI5;
+        arr_10[i][5] = RSSI6;
+    }
+}
+
+void scan()
+{   
+
+    int n = WiFi.scanNetworks();
+
+    if (n == 0)
+    {
+        Serial.println("No Networks Found");
+    }
+    else
+    {
+        for (int i = 0; i < n; ++i)
+        {
+            if (WiFi.SSID(i) == WIFI1)
+            {
+                RSSI1 = WiFi.RSSI(i);
+            }
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (WiFi.SSID(i) == WIFI2)
+            {
+                RSSI2 = WiFi.RSSI(i);
+            }
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (WiFi.SSID(i) == WIFI3)
+            {
+                RSSI3 = WiFi.RSSI(i);
+            }
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (WiFi.SSID(i) == WIFI4)
+            {
+                RSSI4 = WiFi.RSSI(i);
+            }
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (WiFi.SSID(i) == WIFI5)
+            {
+                RSSI5 = WiFi.RSSI(i);
+            }
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            if (WiFi.SSID(i) == WIFI6)
+            {
+                RSSI6 = WiFi.RSSI(i);
+            }
+        }
+    }
+}
+
+void medium_arr(int a[5][6])
+{
+    //determin medium of intensity wifi
+    //1 BMTTVT
+    //2 HTVT
+    //3 VPK
+    //4 ROBOT1
+    //5 DSC
+    //6 P208A
+
+    int arr[6] = {0, 0, 0, 0, 0, 0};
+    
+
+    for (int i = 0; i < 6; i++)
+    {
+        for (int j = 0; j < 5; j++)
+        {
+            arr[i] = arr[i] + a[j][i];
+        }
+    }
+
+    for (int i = 0; i < 6; i++)
+    {
+        med[i] = arr[i] / 5;
+        
+//        sendtest(med[i]);
+    }
+  Serial.println("");
+//  sendtest(1.11);
+    
+}
+
+float dist_arr(float a[], float b[], int k)
+{
+    // a, b must be same lengh
+
+    float sum_square = 0;
+    for (int i = 0; i < k; i++)
+    {
+        sum_square = sum_square + (a[i] - b[i]) * (a[i] - b[i]);
+    }
+    float distance;
+    distance = sqrt(sum_square);
+    return distance;
+}
+
+void position_detect(bool start)
+{
+    int k = 6;
+
+    /* centers of line 1 */
+    float center[60][6] = {{-83.12, -74.52, -86.19, -83.33, -89.88, -95.},
+                           {-81.56, -73.19, -82.88, -83.67, -88.29, -94.94},
+                           {-83.1, -72.5, -79., -84.74, -88.44, -95.},
+                           {-82.77, -72.39, -76.61, -86.27, -89.38, -94.94},
+                           {-82.3, -67.81, -76.35, -87., -90.34, -94.6},
+                           {-80.45, -67.28, -75.8, -87.65, -90.81, -91.34},
+                           {-79.56, -65.65, -75.53, -87.07, -90.91, -89.76},
+                           {-80.1, -65.32, -72.66, -86.68, -91.03, -88.33},
+                           {-77.82, -66.3, -72.43, -86.89, -90.8, -87.09},
+                           {-75.58, -66.77, -70.72, -86.58, -91., -82.18},
+                           {-72.83, -68.33, -70.52, -88.6, -91.44, -78.76},
+                           {-72.42, -69.67, -72.07, -89.65, -92., -77.},
+                           {-71.29, -69.79, -71.12, -89.48, -91.88, -75.21},
+                           {-67.36, -71.6, -70.62, -89.4, -92.15, -77.36},
+                           {-67.63, -74.07, -66., -89.3, -91.74, -76.26},
+                           {-62.48, -75.12, -60.05, -89.15, -91.91, -79.56},
+                           {-63.58, -77.33, -57.16, -88.84, -92.03, -78.37}, //break1
+                           {-60.24, -78.27, -57.78, -88.44, -92.09, -79.},
+                           {-60.7, -79.59, -64.48, -87.57, -91.8, -84.4},
+                           {-62.34, -80.39, -69.78, -87.46, -92.09, -87.36},
+                           /* centers of line 1 */
+                           {-66.51, -84.1, -50.17, -98., -98., -80.27},
+                           {-68.74, -81.1, -51.19, -98., -98., -78.19},
+                           {-71.35, -80.62, -54.2, -97., -97.32, -78.31},
+                           {-75.02, -82.55, -56.4, -95.64, -97.14, -79.07},
+                           {-77.2, -82.88, -61.44, -95.71, -97.12, -78.74},
+                           {-78.23, -82.33, -64.35, -94.6, -96.37, -79.03},
+                           {-79.23, -82., -68.26, -94.46, -94.85, -78.11},
+                           {-79.07, -81.93, -69.6, -92.36, -94.52, -76.61},
+                           {-78.39, -82.54, -70.56, -88.24, -94.34, -75.87},
+                           {-79.55, -80.68, -71.95, -84.5, -92.16, -76.38},
+                           {-81.89, -79.5, -73.76, -84.61, -90.61, -74.14},
+                           {-81.78, -80.73, -75.32, -84.78, -90.88, -74.33},
+                           {-81.69, -83.71, -75.95, -82.64, -89.4, -72.65},
+                           {-81.82, -86.12, -76.68, -81.82, -90.98, -74.14},
+                           {-84.56, -86.53, -76.81, -83.07, -89.53, -71.16},
+                           {-85.15, -87.1, -78.22, -83.02, -88.65, -71.63},
+                           {-84., -87.17, -78.76, -80.36, -87.38, -75.37},
+                           {-86.27, -87.37, -80.49, -75.2, -87.78, -75.4},
+                           {-85.76, -88.05, -81.1, -68.39, -85.12, -74.27},
+                           {-86.54, -87.9, -82.8, -74.37, -86.02, -71.07},
+                           /* centers of line 1 */
+                           {-95.97, -96.13, -89.43, -86.63, -88.83, -72.07},
+                           {-93.22, -94.75, -86.47, -80.38, -85.06, -71.83},
+                           {-87.9, -92.6, -86.93, -81.67, -85.2, -72.27},
+                           {-85.87, -89.5, -84.66, -81.17, -85.3, -67.93}, //break 2
+                           {-86.94, -87.42, -84.88, -76.81, -83.87, -67.94},
+                           {-88.61, -87.65, -86.87, -74.71, -81.03, -65.5},
+                           {-85.3, -87.83, -85.4, -74.4, -81.27, -66.27},
+                           {-85.52, -87.94, -82.4, -75.13, -80.65, -61.},
+                           {-85.74, -87.87, -83.31, -74.03, -79.16, -62.81},
+                           {-84.94, -85.47, -83.52, -72.16, -76.81, -62.82},
+                           {-86.07, -86.68, -83., -69.89, -77.36, -64.43},
+                           {-87.29, -86.9, -85.84, -66.71, -75.77, -71.81},
+                           {-88.97, -87.65, -86.1, -66.13, -73.61, -70.88},
+                           {-91.1, -88.5, -87.83, -65.1, -70.53, -71.27},
+                           {-90.66, -89.69, -90.31, -62.62, -71.34, -75.},
+                           {-90.73, -89.67, -90.17, -61.23, -72.2, -75.81},
+                           {-90.43, -89.53, -89.97, -57.03, -69.57, -76.67},
+                           {-90.43, -89.6, -89.97, -61.53, -66.93, -79.53},
+                           {-90.81, -89.75, -89.81, -61.56, -61.28, -77.33},
+                           {-90.03, -89.5, -89.97, -61.1, -60.03, -79.6}};
+
+    float dist;
+    pos_t[0] = 0;
+    pos_t[1] = 0;
+    if (start == true)
+    {
+        dist = dist_arr(center[0], med, k);
+        for (int j = 0; j < 3; j++)
+        {
+            for (int i = 0; i < 20; i++)
+            {
+
+                if (dist_arr(center[i + j * 20], med, k) < dist)
+                {
+                    dist = dist_arr(center[i + j * 20], med, k);
+                    pos_t[1] = i;
+                    pos_t[0] = j;
+                }
+            }
+        }
+    }
+
+       if(start == false){
+         dist = dist_arr(center[pos_t[1]+pos_t[0]*20], med,k);
+    
+         for(int i = 0; i<20; i++){
+             if(dist_arr(center[i+pos_t[0]*20], med, k) < dist){
+                dist =  dist_arr(center[i+pos_t[0]*20], med, k);
+                pos_t[1] = i;
+             }
+         }
+       }
+}
+
+/*int detect_turn(int pos[2],int arr){
+    int func = 0;
+    if(pos == {0,15}|| pos == {0,16}){
+      if(arr == 4 || arr = 6){
+        func =  10;
+        }
+    }
+    if(pos == {2,2}|| pos == {2,3}){
+      if(arr == 4 || arr = 6){
+        func 10;
+        }
+      }
+
+
+    if(pos == {1,1}|| pos == {1,20}){
+      if(arr == 4 || arr = 6){
+        func 10;
+        }
+      }
+    }
+  return func;
+  }
+
+  bool detect_stop(int pos[2], int dest[2]){
+    bool func = false;
+    for(int i = -1; i<2 ;i++)
+      if(pos[0] == dest[0]){
+        if(pos[1] == dest[1]+i)
+          func = true;
+        }
+  return func;
+    }
+
+*/
+
+void sendtest(float fl)
+{
+    WiFiClient client;
+    HTTPClient http;
+    if (!client.connect(host, port))
+    {
+        Serial.println("Unable to connect\n");
+        return;
+    }
+    String data = "http://www.savedatatttkht.ml/test.php/?test=";
+    data += fl;
+    http.begin(client, data);
+    http.GET();
+    http.end();
+}
+
+void sendposition()
+{
+    WiFiClient client;
+    HTTPClient http;
+    if (!client.connect(host, port))
+    {
+        Serial.println("Unable to connect\n");
+        return;
+    }
+    String data = "http://www.savedatatttkht.ml/position.php/?position=";
+    data += lineofpos;
+    data += "-";
+    data += positionofpos;
+    http.begin(client, data);
+    http.GET();
+    http.end();
+}
+String destination()
+{
+    char server[] = "savedatatttkht.ml";
+    char path[] = "/dest.txt";
+    WiFiClient client;
+    HTTPClient http;
+    if (client.connect(server, port))
+    {
+        client.print("GET /dest.txt");
+        client.println(" HTTP/1.1");
+        client.println("Host: www.savedatatttkht.ml");
+        client.println("User-Agent: Arduino");
+        client.println("Accept: text/html");
+        client.println("Connection: close");
+        client.println();
+    }
+    int count = 0;
+    while (client.connected())
+    {
+        while (client.available())
+        {
+            char ch = client.read();
+            if (ch == '*')
+            {
+                count = 1;
+                continue;
+            }
+            if (count == 1)
+            {
+                dest += ch;
+                if (dest.length() >= 4)
+                {
+                    client.stop();
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void lineandpos(String dest)
+{
+    String strline = "", strposition = "";
+    for (int i = 0; i < 1; i++)
+        strline += dest[i];
+    for (int i = 2; i < dest.length(); i++)
+        strposition += dest[i];
+    lineofdest = strline.toInt();
+    positionofdest = strposition.toInt();
+}
+
+void mapg2(int *arr)
+{
+    if (lineofdest == 1)
+    {
+        if (lineofpos == 1)
+        {
+            arr[0] = 8;
+            arr[1] = 0;
+        }
+        if (lineofpos == 2)
+        {
+            if (positionofdest < break1)
+            {
+                arr[0] = 4;
+                arr[1] = 8;
+            }
+            else
+            {
+                arr[0] = 6;
+                arr[1] = 8;
+            }
+        }
+        if (lineofpos == 3)
+        {
+            if (positionofpos < break2)
+                if (positionofdest < break1)
+                {
+                    arr[0] = 6;
+                    arr[1] = 4;
+                }
+                else
+                {
+                    arr[0] = 6;
+                    arr[1] = 6;
+                }
+            else if (positionofdest < break1)
+            {
+                arr[0] = 4;
+                arr[1] = 4;
+            }
+            else
+            {
+                arr[0] = 4;
+                arr[1] = 6;
+            }
+        }
+    }
+    if (lineofdest == 2)
+    {
+        if (lineofpos == 1)
+        {
+            if (positionofpos < break1)
+            {
+                arr[0] = 6;
+                arr[1] = 8;
+            }
+            else
+            {
+                arr[0] = 4;
+                arr[1] = 8;
+            }
+        }
+        if (lineofpos == 2)
+        {
+            arr[0] = 8;
+            arr[1] = 0;
+        }
+        if (lineofpos == 3)
+        {
+            if (positionofpos < break2)
+            {
+                arr[0] = 6;
+                arr[1] = 8;
+            }
+            else
+            {
+                arr[0] = 4;
+                arr[1] = 8;
+            }
+        }
+    }
+    if (lineofdest == 3)
+    {
+        if (lineofpos == 1)
+        {
+            if (positionofpos < break1)
+                if (positionofdest < break2)
+                {
+                    arr[0] = 6;
+                    arr[1] = 4;
+                }
+                else
+                {
+                    arr[0] = 6;
+                    arr[1] = 6;
+                }
+            else if (positionofdest < break2)
+            {
+                arr[0] = 4;
+                arr[1] = 4;
+            }
+            else
+            {
+                arr[0] = 4;
+                arr[1] = 6;
+            }
+        }
+        if (lineofpos == 2)
+        {
+            if (positionofdest < break2)
+            {
+                arr[0] = 4;
+                arr[1] = 8;
+            }
+            else
+            {
+                arr[0] = 6;
+                arr[1] = 8;
+            }
+        }
+        if (lineofpos == 3)
+        {
+            arr[0] = 8;
+            arr[1] = 0;
+        }
+    }
+}
+
+void Moveon(int speedL, int speedR)
+{
+    analogWrite(ENA, speedL);
+    analogWrite(ENB, speedR);
+    digitalWrite(IN_1, HIGH);
+    digitalWrite(IN_2, LOW);
+    digitalWrite(IN_3, HIGH);
+    digitalWrite(IN_4, LOW);
+    return;
+}
+
+void Right(int speedL, int speedR)
+{
+    analogWrite(ENA, speedL);
+    analogWrite(ENB, speedR);
+    digitalWrite(IN_1, LOW);
+    digitalWrite(IN_2, HIGH);
+    digitalWrite(IN_3, HIGH);
+    digitalWrite(IN_4, LOW);
+    delay(1200);
+    return;
+}
+
+void Left(int speedL, int speedR)
+{
+    analogWrite(ENA, speedL);
+    analogWrite(ENB, speedR);
+    digitalWrite(IN_1, HIGH);
+    digitalWrite(IN_2, LOW);
+    digitalWrite(IN_3, LOW);
+    digitalWrite(IN_4, HIGH);
+    delay(1200);
+    return;
+}
+
+void stopRobot()
+{
+
+    digitalWrite(IN_1, LOW);
+    digitalWrite(IN_2, LOW);
+    analogWrite(ENA, 600);
+
+    digitalWrite(IN_3, LOW);
+    digitalWrite(IN_4, LOW);
+    analogWrite(ENB, 600);
+    return;
+}
+
+void carcontrol()
+{
+    int j = 0;
+    if (lineofpos == lineofdest && positionofpos == positionofdest)
+        stopRobot();
+    if (arr[j] == 8)
+      Moveon(250, 300);
+    else
+    {
+        if (1) {
+          Moveon(250, 300);
+        }
+        else
+          switch (arr[j])
+          {
+          case 4:
+              Left(1000, 1000);
+              ++j;
+              Moveon(1023, 1023);
+              break;
+  
+          case 6:
+              Right(1000, 1000);
+              ++j;
+              Moveon(1023, 1023);
+              break;
+  
+          default:
+              break;
+          }
+    }
+}
+
+int detect_turn(int *pos_t,int arr){
+    int func = 0;
+    if((pos_t[0] ==0 && pos_t[1] == 15)||(pos_t[0] == 0 && pos_t[1] == 16)){
+      if(arr == 4 || arr == 6){
+        func =  10;
+        pos_t[0] = 1;
+        pos_t[1] = 0; 
+        }
+    }
+//    if((pos_t[2] == 2 && pos_t[1] == 1)||(pos_t[0] == 2 && pos_t[1] == 3)){
+//      if(arr == 4 || arr == 6){
+//        func = 10;
+//        pos_t[0] = 1;
+//        pos_t[1] = 20;
+//        }
+//      }
+//(pos_t[0] == 1 && pos_t[1] == 0)||
+
+    if(pos_t[0] == 1 && pos_t[1] == 20){
+      if(arr == 4 || arr == 6){
+        func = 10;
+        if(pos_t[1]<10){
+          pos_t[0] = 0;
+          pos_t[1] = 16; 
+          }
+        if(pos_t[1]>10){
+          pos_t[0] = 2;
+          pos_t[1] = 3; 
+          }
+          
+        }
+      }
+    
+  return func; 
+  }
+  
+bool detect_stop(int pos[2], int dest[2]){
+    bool func = false;
+    for(int i = -1; i<2 ;i++)
+      if(pos[0] == dest[0]){
+        if(pos[1] == dest[1]+i)
+          func = true;
+        }
+  return func;
+    }
+
+void setup()
+{
+
+    pinMode(ENA, OUTPUT);
+    pinMode(ENB, OUTPUT);
+    pinMode(IN_1, OUTPUT);
+    pinMode(IN_2, OUTPUT);
+    pinMode(IN_3, OUTPUT);
+    pinMode(IN_4, OUTPUT);
+
+    Serial.begin(115200);
+    
+//    // wait for WiFi connection
+//    WiFi.mode(WIFI_STA);
+//    WiFiMulti.addAP(SSID, PASSWORD);
+//    delay(5000);
+//    while (WiFiMulti.run() != WL_CONNECTED) {
+//      WiFiMulti.addAP(SSID, PASSWORD);
+//      Serial.print(".");
+//      delay(5000);
+//      //WiFi.reconnect();
+//    }   
+//
+//    memset(arr_10, 0, sizeof(arr_10));
+//    data_col();
+//    medium_arr(arr_10);
+//
+//    position_detect(true);
+//   
+//    lineofpos = pos_t[0] + 1;
+//    positionofpos = pos_t[1];
+//    do {
+//      destination();
+//    delay(1000);
+//    lineandpos(dest);
+//    delay(500); } while(lineofdest == 0);
+//    sendposition();
+//    
+//    mapg2(arr);
+//
+//
+//    sendtest(arr[0]);
+//    sendtest(arr[1]);
+//    dest_t[0] = lineofdest - 1; 
+//    dest_t[1] = positionofdest; 
+
+
+      pos_t[0] = 0;
+      pos_t[1] = 5;
+
+      arr[0] = 6;
+      arr[1] = 6;
+      dest_t[0] = 2;
+      dest_t[1] = 10;
+
+    
+}
+
+
+void loop()
+{   
+
+    Serial.print(pos_t[0]);
+    Serial.print("\t");
+    Serial.println(pos_t[1]);  
+    Moveon(250, 292); 
+   
+//    carcontrol();   
+//    data_col();
+//    medium_arr(arr_10);
+//
+//    position_detect(false);
+
+//    Moveon(250, 250);
+    if(detect_turn( pos_t, arr[t]) == 10){
+      if(arr[t] == 4){
+        Left(800, 800);
+        }
+      if(arr[t] == 6){
+        Right(800,800);
+        }
+        t = 1;
+      }
+
+    if(detect_stop(pos_t, dest_t)){
+      stopRobot();
+      delay(10000);
+      }
+  
+      pos_t[1] = pos_t[1]+1;
+      delay(1000);
+    
+//    lineofpos = pos_t[0] + 1;
+//    positionofpos = pos_t[1];
+//
+//    sendposition(); 
+
+}
