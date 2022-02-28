@@ -8,3 +8,5 @@ WiFi Map Indoor Positioning System</br>
 WPS is a geolocation system that uses the characteristics of nearby Wi-Fi hotspots and other wireless access points to discover where a device is located. It is used where satellite navigation such as GPS is inadequate due to various causes including multipath and signal blockage indoors, or where acquiring a satellite fix would take too long. Such systems include indoor positioning systems. Wi-Fi positioning takes advantage of the rapid growth in the early 21st century of wireless access points in urban areas.</br>
 In this project, we use Arduino linefollower robot and ESP8266EX to meansure RSSI of 3 WiFis continuous. Then make a WiFi map to determine user position.</br>
 Special thanks to Dr. Tran Thi Thuy Quynh FET-UET-VNU-VietNam.
+
+License and Referencing These code is licensed under the GPLv2 license. If you in any way use these code for research that results in publications, please cite our original article listed above.
